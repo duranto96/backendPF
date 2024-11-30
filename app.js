@@ -6,12 +6,17 @@ const app = express();
 
 //CORS para que el navegador no bloquee la solicitud
 const cors = require("cors");
+app.use(cors());
+const jwt = require('jsonwebtoken');
+
 
 // Definir un puerto para el servidor
 const PORT = 3000;
 
+
+
 // Habilitar CORS
-app.use(cors());
+
 
 // Utilizar el módulo fs de Node.js para leer los archivos JSON
 const fs = require("fs");
@@ -24,6 +29,68 @@ app.use(express.json()); // Permite parsear cuerpos JSON
 const logPath = (req, filePath) => {
   console.log(`Ruta generada para ${req.originalUrl}: ${filePath}`);
 };
+
+// Clave secreta para JWT (en producción usar variable de entorno)
+const JWT_SECRET = 'claveSecretaParaEstudiantes123';
+
+// Usuario de prueba (en producción usar base de datos)
+app.get('/', (req, res) => {
+  // Aquí puedes acceder a req.body.username
+  let username = req.body.username;
+  res.send(`Hola, ${username}!`);
+});
+
+// Tiempo de expiración del token (30 segundos para demostración)
+const TOKEN_EXPIRATION = '30s';
+
+// Middleware para verificar el token
+const authenticateToken = (req, res, next) => {
+    // Obtener el header de autorización
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'Token no proporcionado' });
+    }
+
+    // Verificar el token
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ message: 'Token inválido o expirado' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
+// Ruta de login
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+   //Usuario de prueba (en producción usar base de datos)
+const USER = {
+    username: 'estudiante',
+    password: '123456'
+     };
+
+    // Verificar credenciales
+    if (username === USER.username && password === USER.password) {
+        // Crear token
+        const token = jwt.sign(
+            { username: USER.username },
+            JWT_SECRET,
+            { expiresIn: TOKEN_EXPIRATION }
+        );
+
+        res.json({ token });
+    } else {
+        res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+});
+
+// Ruta protegida
+app.get('/protected', authenticateToken, (req, res) => {
+    res.json({ message: '¡Acceso permitido al contenido protegido!' });
+});
 
 // Ruta para obtener datos del carrito
 app.get("/cart", (req, res) => {
